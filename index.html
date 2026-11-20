@@ -1,0 +1,303 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#f4f2ec">
+<meta name="robots" content="noindex, nofollow">
+<title>NYC Reise</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><circle cx='8' cy='8' r='6' fill='%23ff9500' stroke='white' stroke-width='2'/></svg>">
+<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css">
+<style>
+  :root {
+    --ink: #1d1d1f; --ink2: #6e6e73; --fill: rgba(118,118,128,.12);
+    --glass: rgba(250,250,248,.8); --blue: #007aff; --peek: 150px;
+    font: 15px/1.35 -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
+    color: var(--ink); -webkit-font-smoothing: antialiased;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; overflow: hidden; background: #f4f2ec; }
+  button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+  #map { position: fixed; inset: 0; }
+  .glass { background: var(--glass); -webkit-backdrop-filter: blur(24px) saturate(180%); backdrop-filter: blur(24px) saturate(180%); }
+
+  #days { position: fixed; z-index: 2; top: 0; left: 0; right: 0; display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none;
+          padding: calc(env(safe-area-inset-top) + 10px) 12px 10px; }
+  #days::-webkit-scrollbar, #filters::-webkit-scrollbar { display: none; }
+  .day { flex: none; padding: 7px 13px; border-radius: 99px; font-size: 13px; font-weight: 600; white-space: nowrap;
+         box-shadow: 0 1px 4px rgba(0,0,0,.14); transition: transform .1s; }
+  .day:active { transform: scale(.95); }
+  .day[aria-pressed="true"] { background: var(--ink); color: #fff; }
+  .day.today::before { content: ""; display: inline-block; width: 6px; height: 6px; margin-right: 6px; border-radius: 50%; background: var(--blue); vertical-align: 1px; }
+
+  #sheet { position: fixed; z-index: 3; left: 0; right: 0; bottom: 0; height: min(56vh, 560px); display: flex; flex-direction: column;
+           border-radius: 22px 22px 0 0; box-shadow: 0 -4px 24px rgba(0,0,0,.12);
+           transform: translateY(calc(100% - var(--peek))); transition: transform .45s cubic-bezier(.2,.9,.25,1); }
+  #sheet.open { transform: none; }
+  #grab { flex: none; touch-action: none; cursor: grab; padding: 8px 18px 4px; }
+  #grab::before { content: ""; display: block; width: 36px; height: 5px; margin: 0 auto 10px; border-radius: 3px; background: rgba(60,60,67,.28); }
+  h1 { font-size: 21px; line-height: 1.15; font-weight: 700; letter-spacing: -.02em; }
+  #sub { margin-top: 3px; font-size: 13px; color: var(--ink2); }
+  #filters { flex: none; display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding: 8px 18px 12px; }
+  .chip { flex: none; display: flex; align-items: center; gap: 6px; padding: 6px 11px; border-radius: 99px; background: var(--fill);
+          font-size: 13px; font-weight: 500; transition: opacity .15s; }
+  .chip[aria-pressed="false"] { opacity: .4; }
+  .dot { flex: none; width: 10px; height: 10px; border-radius: 50%; background: currentColor; }
+  .dot.ring { background: #fff; box-shadow: inset 0 0 0 2.5px currentColor; }
+  #scroll { flex: 1; overflow-y: auto; overscroll-behavior: contain; padding: 0 10px calc(env(safe-area-inset-bottom) + 16px);
+            border-top: .5px solid rgba(60,60,67,.14); }
+  .sec { padding: 16px 8px 4px; font-size: 12px; font-weight: 600; letter-spacing: .03em; text-transform: uppercase; color: var(--ink2); }
+  .row { display: flex; align-items: center; gap: 12px; width: 100%; padding: 9px 8px; border-radius: 12px; text-align: left; }
+  .row:active, .row.sel { background: rgba(0,0,0,.05); }
+  .row .t { flex: 1; min-width: 0; }
+  .row b, .row small { display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .row b { font-weight: 600; }
+  .row small { font-size: 13px; color: var(--ink2); }
+  .tag { flex: none; padding: 2px 7px; border-radius: 6px; background: var(--fill); font-size: 11px; font-weight: 600; color: var(--ink2); }
+  .empty { padding: 20px 8px; color: var(--ink2); }
+
+  #detail { position: relative; margin: 12px 0 4px; padding: 16px; border-radius: 16px; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+  #detail .k { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: var(--ink2); }
+  #detail h2 { margin: 6px 36px 2px 0; font-size: 20px; line-height: 1.2; letter-spacing: -.01em; }
+  #detail p { margin-top: 4px; font-size: 14px; color: var(--ink2); }
+  #detail .note { color: var(--ink); }
+  .by { display: inline-block; margin-top: 10px; padding: 3px 8px; border-radius: 6px; background: #8e8e93; color: #fff; font-size: 12px; font-weight: 600; }
+  .x { position: absolute; top: 12px; right: 12px; width: 30px; height: 30px; border-radius: 50%; background: var(--fill); font-size: 18px; line-height: 30px; color: var(--ink2); }
+  .actions { display: flex; gap: 8px; margin-top: 14px; }
+  .btn { flex: 1; padding: 11px 8px; border-radius: 12px; background: var(--blue); color: #fff; font-weight: 600; text-align: center; text-decoration: none; }
+  .btn.alt { background: rgba(0,122,255,.12); color: var(--blue); }
+  .btn:active { opacity: .7; }
+
+  .maplibregl-ctrl-top-right { top: calc(env(safe-area-inset-top) + 52px); }
+
+  @media (min-width: 900px) {
+    #days { left: 396px; }
+    #sheet { left: 16px; top: 16px; bottom: 16px; width: 364px; height: auto; border-radius: 22px; transform: none !important; }
+    #grab { cursor: default; }
+    #grab::before { display: none; }
+    .maplibregl-ctrl-top-right { top: 56px; }
+  }
+  @media (prefers-reduced-motion: reduce) { #sheet, .day { transition: none; } }
+  @media (prefers-reduced-transparency: reduce) { .glass { background: #fafaf8; -webkit-backdrop-filter: none; backdrop-filter: none; } }
+</style>
+</head>
+<body>
+<div id="map"></div>
+<nav id="days" aria-label="Tage"></nav>
+<section id="sheet" class="glass">
+  <div id="grab" role="button" tabindex="0" aria-label="Liste ein- oder ausklappen"><h1 id="title"></h1><p id="sub"></p></div>
+  <div id="filters"></div>
+  <div id="scroll"></div>
+</section>
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<script src="data.js"></script>
+<script>
+const CATS = {
+  essen:       { label: 'Essen',          color: '#ff9500' },
+  suess:       { label: 'Süßes & Kaffee', color: '#ff2d55' },
+  sehen:       { label: 'Sehenswert',     color: '#007aff' },
+  weihnachten: { label: 'Weihnachten',    color: '#34c759' },
+  abends:      { label: 'Abends',         color: '#5856d6' },
+};
+const ORDER = Object.keys(CATS);
+const { days, places } = window.TRIP;
+const byId = Object.fromEntries(places.map(p => [p.id, p]));
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => `&#${c.charCodeAt(0)};`);
+const WD = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'];
+const date = d => new Date(d + 'T12:00');
+const short = d => `${WD[date(d).getDay()]} ${date(d).getDate()}.`;
+const long = d => `${short(d)}${date(d).getMonth() + 1}.`;
+const today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+const S = { day: days.some(d => d.d === today) ? today : 'alle', cats: new Set(ORDER), claude: true, branches: true, sel: null, open: false };
+
+// Filialen (main: false) gelten an jedem Tag, alle anderen Orte nur an ihrem Tag.
+const visible = p => S.cats.has(p.cat) && (p.by === 'us' || S.claude) && (p.main ? S.day === 'alle' || p.day === S.day : S.branches);
+const apple = p => `https://maps.apple.com/?q=${encodeURIComponent(p.name)}&sll=${p.lat},${p.lng}&z=17`;
+const route = p => `https://maps.apple.com/?daddr=${p.lat},${p.lng}&dirflg=r`;
+const desk = () => innerWidth >= 900;
+const peek = () => $('filters').offsetTop + $('filters').offsetHeight;
+
+// ---------- Karte ----------
+const map = new maplibregl.Map({ container: 'map', style: 'https://tiles.openfreemap.org/styles/positron',
+  center: [-73.985, 40.74], zoom: 11.5, attributionControl: false });
+map.addControl(new maplibregl.GeolocateControl({ positionOptions: { enableHighAccuracy: true }, trackUserLocation: true }), 'top-right');
+map.addControl(new maplibregl.AttributionControl({ compact: true }), 'top-right');
+
+// Positron etwas wärmer, Wasser und Parks dezent farbig, angelehnt an Apple Maps.
+const PAINT = { background: ['background-color', '#f4f2ec'], landuse_residential: ['fill-color', '#efede7'],
+  park: ['fill-color', '#d5eac8'], landcover_wood: ['fill-color', '#d5eac8'], water: ['fill-color', '#a9d2f1'],
+  waterway: ['line-color', '#a9d2f1'], building: ['fill-color', '#e7e4dc'] };
+const BY_CLAUDE = ['==', ['get', 'by'], 'claude'];
+const geo = () => ({ type: 'FeatureCollection', features: places.filter(visible).map(p => ({ type: 'Feature',
+  geometry: { type: 'Point', coordinates: [p.lng, p.lat] },
+  properties: { id: p.id, name: p.name.replace(/ \(.*\)$/, ''), by: p.by, main: p.main, color: CATS[p.cat].color } })) });
+
+map.on('load', () => {
+  for (const [id, [k, v]] of Object.entries(PAINT)) if (map.getLayer(id)) map.setPaintProperty(id, k, v);
+  map.addSource('pts', { type: 'geojson', data: geo() });
+  map.addLayer({ id: 'branch', type: 'circle', source: 'pts', filter: ['!', ['get', 'main']], paint: {
+    'circle-radius': ['interpolate', ['linear'], ['zoom'], 11, 2.5, 16, 5], 'circle-color': '#8e8e93', 'circle-opacity': .75,
+    'circle-stroke-color': '#fff', 'circle-stroke-width': 1 } });
+  map.addLayer({ id: 'sel', type: 'circle', source: 'pts', filter: ['==', ['get', 'id'], S.sel || ''], paint: {
+    'circle-radius': 16, 'circle-color': ['get', 'color'], 'circle-opacity': .18, 'circle-stroke-color': ['get', 'color'], 'circle-stroke-width': 1.5 } });
+  // Eure Orte: gefüllt. Claudes Vorschläge: hohler Ring, kursive graue Schrift.
+  map.addLayer({ id: 'pin', type: 'circle', source: 'pts', filter: ['get', 'main'], layout: { 'circle-sort-key': ['case', BY_CLAUDE, 0, 1] }, paint: {
+    'circle-radius': ['interpolate', ['linear'], ['zoom'], 10, 4.5, 15, 8],
+    'circle-color': ['case', BY_CLAUDE, '#fff', ['get', 'color']],
+    'circle-stroke-color': ['case', BY_CLAUDE, ['get', 'color'], '#fff'],
+    'circle-stroke-width': ['case', BY_CLAUDE, 2.5, 2] } });
+  map.addLayer({ id: 'label', type: 'symbol', source: 'pts', filter: ['get', 'main'], layout: {
+    'text-field': ['get', 'name'], 'text-size': 12, 'text-anchor': 'left', 'text-offset': [0.9, 0], 'text-max-width': 9,
+    'text-font': ['case', BY_CLAUDE, ['literal', ['Noto Sans Italic']], ['literal', ['Noto Sans Bold']]],
+    'symbol-sort-key': ['case', BY_CLAUDE, 1, 0] }, paint: {
+    'text-color': ['case', BY_CLAUDE, '#6e6e73', '#1d1d1f'], 'text-halo-color': 'rgba(255,255,255,.92)', 'text-halo-width': 1.5 } }, 'branch');
+  document.querySelector('.maplibregl-ctrl-attrib')?.classList.remove('maplibregl-compact-show');
+  fit(false);
+});
+
+const hits = pt => map.getLayer('pin') ? map.queryRenderedFeatures(pt, { layers: ['pin', 'branch'] }) : [];
+map.on('click', e => {
+  const { x, y } = e.point;
+  const hit = hits([[x - 14, y - 14], [x + 14, y + 14]]).sort((a, b) => b.properties.main - a.properties.main)[0];
+  select(hit ? hit.properties.id : null, false);
+});
+map.on('mousemove', e => { map.getCanvas().style.cursor = hits(e.point).length ? 'pointer' : ''; });
+
+// Freie Kartenfläche neben Tagesleiste und Sheet.
+function pad() {
+  // rechts Platz für Beschriftungen (stehen rechts vom Pin) und die Knöpfe oben rechts
+  const top = $('days').getBoundingClientRect().bottom + 16;
+  if (desk()) return { top, left: 396, right: 140, bottom: 32 };
+  return { top, left: 24, right: 96, bottom: (S.open ? $('sheet').offsetHeight : peek()) + 16 };
+}
+function fit(anim = true) {
+  const b = new maplibregl.LngLatBounds();
+  places.filter(p => p.main && visible(p)).forEach(p => b.extend([p.lng, p.lat]));
+  if (!b.isEmpty()) map.fitBounds(b, { padding: pad(), maxZoom: 15, duration: anim ? 700 : 0 });
+}
+
+// ---------- Auswahl ----------
+function select(id, fly = true) {
+  S.sel = id;
+  render();
+  if (!id) return;
+  setOpen(true);
+  $('scroll').scrollTop = 0;
+  const p = byId[id], pt = map.project([p.lng, p.lat]), pd = pad();
+  const inside = pt.x > pd.left && pt.x < innerWidth - pd.right && pt.y > pd.top && pt.y < innerHeight - pd.bottom;
+  if (fly || !inside) map.easeTo({ center: [p.lng, p.lat], zoom: Math.max(map.getZoom(), 14), duration: 600,
+    offset: [(pd.left - pd.right) / 2, (pd.top - pd.bottom) / 2] });
+}
+
+// ---------- Sheet ----------
+// Solange niemand selbst verschoben hat, rahmt die Karte die Orte im freien Bereich neu ein.
+let userMoved = false;
+map.on('movestart', e => { if (e.originalEvent) userMoved = true; });
+function setOpen(v) {
+  const changed = v !== S.open;
+  S.open = v;
+  $('sheet').style.transform = '';
+  $('sheet').classList.toggle('open', v);
+  if (changed && !S.sel && !userMoved && !desk()) fit();
+}
+const grab = $('grab');
+let drag = null;
+grab.onpointerdown = e => {
+  if (desk()) return;
+  drag = { y0: e.clientY, y: e.clientY, t: e.timeStamp, v: 0, moved: false, base: S.open ? 0 : $('sheet').offsetHeight - peek() };
+  grab.setPointerCapture(e.pointerId);
+  $('sheet').style.transition = 'none';
+};
+grab.onpointermove = e => {
+  if (!drag) return;
+  const dy = e.clientY - drag.y0;
+  if (Math.abs(dy) > 6) drag.moved = true;
+  drag.v = (e.clientY - drag.y) / Math.max(1, e.timeStamp - drag.t) * 1000;
+  drag.y = e.clientY; drag.t = e.timeStamp;
+  if (drag.moved) $('sheet').style.transform = `translateY(${Math.max(0, drag.base + dy)}px)`;
+};
+grab.onpointerup = grab.onpointercancel = e => {
+  if (!drag) return;
+  const v = e.timeStamp - drag.t > 80 ? 0 : drag.v;
+  // Ziel aus Position plus Schwung (Apple-Projektion, Verzögerung 0.998), dann zum näheren Zustand.
+  const end = drag.base + (e.clientY - drag.y0) + v * 0.499;
+  $('sheet').style.transition = '';
+  setOpen(drag.moved ? end < ($('sheet').offsetHeight - peek()) / 2 : !S.open);
+  drag = null;
+};
+grab.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setOpen(!S.open); } };
+
+// ---------- Rendering ----------
+$('days').innerHTML = [['alle', 'Alle'], ...days.map(d => [d.d, d.d === today ? 'Heute' : short(d.d)])].map(([k, t]) =>
+  `<button class="day glass${k === today ? ' today' : ''}" data-d="${k}">${t}</button>`).join('');
+$('filters').innerHTML = ORDER.filter(c => places.some(p => p.cat === c)).map(c =>
+  `<button class="chip" data-cat="${c}"><span class="dot" style="color:${CATS[c].color}"></span>${CATS[c].label}</button>`).join('')
+  + '<button class="chip" data-t="claude"><span class="dot ring" style="color:#6e6e73"></span>Vorschläge von Claude</button>'
+  + '<button class="chip" data-t="branches"><span class="dot" style="color:#8e8e93"></span>Weitere Filialen</button>';
+
+$('days').onclick = e => {
+  const b = e.target.closest('.day');
+  if (!b) return;
+  S.day = b.dataset.d; S.sel = null; userMoved = false;
+  render(); fit();
+  b.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' });
+};
+$('filters').onclick = e => {
+  const b = e.target.closest('.chip');
+  if (!b) return;
+  const c = b.dataset.cat;
+  if (c) S.cats.has(c) ? S.cats.delete(c) : S.cats.add(c); else S[b.dataset.t] = !S[b.dataset.t];
+  if (S.sel && !visible(byId[S.sel])) S.sel = null;
+  render();
+};
+$('scroll').onclick = e => {
+  if (e.target.closest('.x')) return select(null);
+  const r = e.target.closest('.row');
+  if (r) select(r.dataset.id);
+};
+addEventListener('resize', () => document.documentElement.style.setProperty('--peek', peek() + 'px'));
+
+const dot = p => `<span class="dot${p.by === 'claude' ? ' ring' : ''}" style="color:${CATS[p.cat].color}"></span>`;
+const sortKey = (a, b) => (a.day || 'z').localeCompare(b.day || 'z') || ORDER.indexOf(a.cat) - ORDER.indexOf(b.cat) || a.name.localeCompare(b.name);
+const row = p => `<button class="row${p.id === S.sel ? ' sel' : ''}" data-id="${p.id}">${dot(p)}<span class="t"><b>${esc(p.name)}</b>`
+  + `<small>${esc([p.hood, CATS[p.cat].label].filter(Boolean).join(' · '))}</small></span>`
+  + `${S.day === 'alle' && p.day ? `<span class="tag">${short(p.day)}</span>` : ''}</button>`;
+
+function detail(p) {
+  const main = p.main ? null : places.find(q => q.group === p.group && q.main);
+  return `<article id="detail"><button class="x" aria-label="Schließen">×</button>
+    <div class="k">${dot(p)}${CATS[p.cat].label}${p.hood ? ' · ' + esc(p.hood) : ''}</div>
+    <h2>${esc(p.name)}</h2><p>${esc(p.addr)}${main ? ' · weitere Filiale' : ''}</p>
+    ${p.note ? `<p class="note">${esc(p.note)}</p>` : ''}
+    ${p.day && p.day !== S.day ? `<p>Geplant: ${long(p.day)}</p>` : ''}
+    ${p.by === 'claude' ? '<span class="by">Vorschlag von Claude</span>' : ''}
+    <div class="actions"><a class="btn" href="${apple(p)}" target="_blank" rel="noopener">In Apple Maps</a>`
+    + `<a class="btn alt" href="${route(p)}" target="_blank" rel="noopener">Route mit Öffis</a></div></article>`;
+}
+
+function render() {
+  for (const b of $('days').children) b.setAttribute('aria-pressed', b.dataset.d === S.day);
+  for (const b of $('filters').children) b.setAttribute('aria-pressed', b.dataset.cat ? S.cats.has(b.dataset.cat) : S[b.dataset.t]);
+  if (map.getSource('pts')) { map.getSource('pts').setData(geo()); map.setFilter('sel', ['==', ['get', 'id'], S.sel || '']); }
+
+  const day = days.find(d => d.d === S.day);
+  const main = places.filter(p => p.main && visible(p));
+  $('title').textContent = day ? day.title : 'Alle Orte';
+  $('sub').textContent = day ? [long(day.d), day.note].filter(Boolean).join(' · ')
+    : `${long(days[0].d)} bis ${long(days[days.length - 1].d)} · ${main.length} Orte`;
+
+  const us = main.filter(p => p.by === 'us').sort(sortKey), cl = main.filter(p => p.by === 'claude').sort(sortKey);
+  $('scroll').innerHTML = (S.sel ? detail(byId[S.sel]) : '')
+    + (us.length ? `<h3 class="sec">Eure Orte · ${us.length}</h3>${us.map(row).join('')}` : '')
+    + (cl.length ? `<h3 class="sec">Vorschläge von Claude · ${cl.length}</h3>${cl.map(row).join('')}` : '')
+    + (main.length ? '' : '<p class="empty">Für diese Auswahl ist nichts geplant.</p>');
+  document.documentElement.style.setProperty('--peek', peek() + 'px');
+}
+
+render();
+document.querySelector('.day[aria-pressed="true"]')?.scrollIntoView({ inline: 'center', block: 'nearest' });
+</script>
+</body>
+</html>
