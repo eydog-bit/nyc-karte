@@ -130,6 +130,11 @@
   .subway div { display: flex; align-items: center; gap: 4px; min-width: 0; }
   .subway span { margin-left: 4px; font-weight: 600; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
   .subway small { margin-left: auto; padding-left: 8px; color: var(--ink2); white-space: nowrap; }
+  .howto { margin-top: 12px; padding: 12px 14px; border-radius: 14px; background: rgba(0,122,255,.07); font-size: 14px; }
+  .howto > b { display: block; font-size: 13px; color: var(--blue); }
+  .howto p { margin-top: 4px; color: var(--ink); line-height: 1.5; }
+  .howto .bul { width: 18px; height: 18px; font-size: 10px; vertical-align: -3px; }
+  .howto a { display: inline-block; margin-top: 8px; font-size: 13px; font-weight: 600; }
   .bul { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; font: 700 11px/1 "Helvetica Neue", Helvetica, Arial, sans-serif; }
   .actions { display: flex; gap: 8px; margin-top: 14px; }
   .btn { flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px; min-height: 44px; padding: 10px; border-radius: 14px;
@@ -194,6 +199,7 @@
   }
   @media (min-width: 900px) {
     #days { left: 404px; }
+    #filters { flex-wrap: wrap; }
     #sheet { left: 16px; top: 16px; bottom: 16px; width: 372px; height: auto; transform: none !important; }
     #grab { cursor: default; padding-top: 18px; }
     #grab::before { display: none; }
@@ -287,6 +293,10 @@ function nyNow() {
 let NOW = nyNow();
 const hm = m => `${Math.floor(m / 60) % 24}:${String(m % 60).padStart(2, '0')}`;
 function openInfo(p) {
+  // Märkte mit Laufzeit: vorher "erst ab", danach "vorbei" (Datum in New Yorker Zeit)
+  const ny = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+  if (p.from && ny < p.from) return { open: false, cls: 'cl', text: `Erst ab ${long(p.from)}` };
+  if (p.to && ny > p.to) return { open: false, cls: 'cl', text: 'Vorbei' };
   let s; try { s = OH.status(p.oh, NOW); } catch { return null; }
   if (!s) return null;
   if (s.always) return { open: true, cls: 'op', text: 'Immer zugänglich' };
@@ -305,16 +315,45 @@ function weekTable(p) {
 const dist = (a, b) => Math.hypot((b.lng - a.lng) * Math.cos(a.lat * Math.PI / 180) * 111320, (b.lat - a.lat) * 110574);
 const NYC = { lat: 40.73, lng: -73.94 };
 const km = m => m < 950 ? `${Math.round(m / 10) * 10} m` : `${(m / 1000).toFixed(1).replace('.', ',')} km`;
-const stationsNear = (p, n = 2) => SUB.stations.map(s => ({ name: s[0], lines: s[3] ? s[3].split(' ') : [], d: dist(p, { lat: s[1], lng: s[2] }) }))
+const stationsNear = (p, n = 2) => SUB.stations.map(s => ({ name: s[0], lng: s[2], lines: s[3] ? s[3].split(' ') : [], d: dist(p, { lat: s[1], lng: s[2] }) }))
   .sort((a, b) => a.d - b.d).slice(0, n).filter(s => s.d < 1500);
 const bullet = r => `<span class="bul" style="background:${LINE_COLOR[r] || '#808183'};color:${/^[NQRW]$/.test(r) ? '#000' : '#fff'}">${esc(r)}</span>`;
 const stationList = list => `<div class="subway">${list.map(s => `<div>${s.lines.map(bullet).join('')}<span>${esc(s.name)}</span><small>${s.min ? s.min + ' Min. zu Fuß' : km(s.d) + ' · ' + Math.max(1, Math.round(s.d / 80)) + ' Min.'}</small></div>`).join('')}</div>`;
+
+// Am Hotel hält nur 21 St-Queensbridge: werktags etwa 6 bis 21:30 die M, sonst die F (F/M-Tausch seit 08.12.2025).
+const HOTEL_ST = '21 St-Queensbridge';
+const hotelLine = () => NOW.d <= 4 && NOW.m >= 360 && NOW.m < 1290 ? 'M' : 'F';
+const walkMin = m => Math.max(1, Math.round(m * 1.25 / 80)); // Luftlinie mal 1,25 fürs Straßenraster
+function stationsFor(p) {
+  const T = window.TRIP.transit || {};
+  const list = p.id === 'hotel' && T.hotelStations ? T.hotelStations.map(([name, lines, min]) => ({ name, lines: lines.split(' '), min })) : stationsNear(p);
+  return list.length ? stationList(list) : '';
+}
+function howTo(p) {
+  const h = byId.hotel, hs = SUB.stations.find(s => s[0] === HOTEL_ST);
+  if (!h || !hs || p.cat === 'basis') return '';
+  const lines = [];
+  if (near()) { const d = dist(S.pos, p); lines.push(`Von euch: ${km(d)}${d < 2500 ? `, zu Fuß ca. ${walkMin(d)} Min.` : ''}`); }
+  const w = dist(h, p);
+  if (w < 1300) lines.push(`Vom Hotel zu Fuß ca. ${walkMin(w)} Min.`);
+  else {
+    const now = hotelLine(), other = now === 'M' ? 'F' : 'M';
+    const at = stationsNear(p, 6).filter(s => s.d < 1000), find = l => at.find(s => s.lines.includes(l));
+    const dir = s => s.lng < hs[2] ? 'Richtung Manhattan' : 'Richtung Queens';
+    const leg = (l, s) => `${bullet(l)} ab ${HOTEL_ST} ${dir(s)} bis <b>${esc(s.name)}</b>, dann ${walkMin(s.d)} Min. zu Fuß`;
+    const a = find(now), b = find(other), when = now === 'M' ? 'Abends und am Wochenende' : 'Werktags tagsüber';
+    if (a) lines.push(`Ohne Umstieg: ${leg(now, a)}.` + (b && b.name !== a.name ? ` ${when}: ${bullet(other)} bis ${esc(b.name)}.` : ''));
+    else if (b) lines.push(`Jetzt mit einem Umstieg: ${bullet(now)} bis W 4 St oder Broadway-Lafayette St, dort in die ${bullet(other)} bis <b>${esc(b.name)}</b>. ${when} geht es ohne Umstieg.`);
+    else lines.push('Mit Umstieg, „Route mit Öffis“ zeigt den besten Weg.');
+  }
+  return `<div class="howto"><b>So kommt ihr hin</b>${lines.map(l => `<p>${l}</p>`).join('')}<a href="${route(h)}" target="_blank" rel="noopener">Von hier zurück zum Hotel</a></div>`;
+}
 
 const S = { day: days.some(d => d.d === today) ? today : 'alle', cats: new Set(ORDER), claude: true, branches: true, open: false, sel: null,
             q: '', openNow: false, hideDone: false, showHidden: false, nearby: false, tab: 'orte', subway: store.get('subway', false),
             pos: null, follow: false, form: null };
 const near = () => S.pos && dist(S.pos, NYC) < 60000;
-const norm = s => String(s || '').normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
+const norm = s => String(s || '').normalize('NFD').replace(/\p{M}/gu, '').replace(/[’‘ʼ'`´]/g, '').toLowerCase();
 const match = p => norm([p.name, p.hood, p.addr, p.note, CATS[p.cat].label].join(' ')).includes(norm(S.q));
 
 function visible(p) {
@@ -322,7 +361,7 @@ function visible(p) {
   if (isHidden(p) && !S.showHidden) return false;
   if (!S.cats.has(p.cat) || (p.by === 'claude' && !S.claude)) return false;
   if (S.hideDone && U.done[p.id]) return false;
-  if (S.openNow && !openInfo(p)?.open) return false;
+  if (S.openNow && openInfo(p)?.open === false) return false; // unbekannte Zeiten bleiben sichtbar
   if (S.q) return match(p);
   // Filialen (main: false) gelten an jedem Tag, alle anderen Orte nur an ihrem Tag.
   return p.main ? S.day === 'alle' || dayOf(p) === S.day : S.branches;
@@ -396,7 +435,7 @@ map.on('load', () => {
     'text-field': ['get', 'name'], 'text-size': 12, 'text-anchor': 'left', 'text-offset': [0.95, 0], 'text-max-width': 9,
     'text-font': ['case', BY_CLAUDE, ['literal', ['Noto Sans Italic']], ['literal', ['Noto Sans Bold']]],
     'symbol-sort-key': ['case', DONE, 2, BY_CLAUDE, 1, 0] }, paint: {
-    'text-color': ['case', DONE, '#aeaeb2', BY_CLAUDE, '#6e6e73', '#1d1d1f'], 'text-halo-color': 'rgba(255,255,255,.92)', 'text-halo-width': 1.5 } }, 'branch');
+    'text-color': ['case', DONE, '#aeaeb2', BY_CLAUDE, '#6e6e73', '#1d1d1f'], 'text-halo-color': 'rgba(255,255,255,.92)', 'text-halo-width': 1.5 } });
   document.querySelector('.maplibregl-ctrl-attrib')?.classList.remove('maplibregl-compact-show');
 
   for (const p of places.filter(p => p.cat === 'basis')) {
@@ -466,7 +505,10 @@ function onPos(g) {
   S.pos = { lat: g.coords.latitude, lng: g.coords.longitude }; S.geoErr = null;
   meMarker.setLngLat([S.pos.lng, S.pos.lat]).addTo(map);
   if (S.follow) map.easeTo({ center: [S.pos.lng, S.pos.lat], duration: 500, offset: offsetFree() });
-  if (!lastPosRender || dist(lastPosRender, S.pos) > 120) { lastPosRender = S.pos; $('c-near').hidden = !near(); if (near()) render(); }
+  if (!lastPosRender || dist(lastPosRender, S.pos) > 120) {
+    lastPosRender = S.pos; $('c-near').hidden = !near();
+    if (near() && !S.form && !document.activeElement?.matches('textarea, select, input')) render();
+  }
 }
 const offsetFree = () => { const pd = pad(); return [(pd.left - pd.right) / 2, (pd.top - pd.bottom) / 2]; };
 if ('geolocation' in navigator) navigator.geolocation.watchPosition(onPos, e => { S.geoErr = e.code; }, { enableHighAccuracy: true, maximumAge: 15000 });
@@ -615,19 +657,19 @@ function detail(p) {
     ${p.addr ? `<p><a href="${apple(p)}" target="_blank" rel="noopener">${esc(p.addr)}</a>${parent ? ' · weitere Filiale' : ''}</p>` : ''}
     ${o ? `<p><i class="${o.cls}">${o.text}</i> ${weekTable(p)}</p>` : ''}
     ${p.note ? `<p class="note">${esc(p.note)}</p>` : ''}
-    ${stationsNear(p).length ? stationList(stationsNear(p)) : ''}
+    ${stationsFor(p)}${howTo(p)}
     <div class="actions"><a class="btn press" href="${route(p)}" target="_blank" rel="noopener">Route mit Öffis</a>`
     + (base ? '' : `<button class="btn alt press${done ? ' on' : ''}" data-act="done">${I.check}${done ? 'Erledigt' : 'Abhaken'}</button>`) + `</div>`
     + (base ? '' : `<div class="edit"><label>Tag<select data-act="day" aria-label="Tag">${dayOptions(dayOf(p))}</select></label>`
       + (mine ? '<button class="link" data-act="edit">Bearbeiten</button><button class="link red" data-act="del">Löschen</button>'
-              : `<button class="link" data-act="hide">${isHidden(p) ? 'Einblenden' : 'Ausblenden'}</button>`) + `</div>
-    <textarea class="mynote" data-act="note" rows="2" placeholder="Eigene Notiz">${esc(U.edits[p.id]?.note)}</textarea>`) + '</article>';
+              : `<button class="link" data-act="hide">${isHidden(p) ? 'Einblenden' : 'Ausblenden'}</button>`) + `</div>`
+      + (mine ? '' : `<textarea class="mynote" data-act="note" rows="2" placeholder="Eigene Notiz">${esc(U.edits[p.id]?.note)}</textarea>`)) + '</article>';
 }
 
 function listView() {
   const L = places.filter(p => (p.main || S.q) && visible(p));
   const nHidden = places.filter(isHidden).length;
-  const more = nHidden ? `<button class="more" data-act="showHidden">${S.showHidden ? 'Ausgeblendete wieder verbergen' : `${nHidden} ausgeblendete Orte zeigen`}</button>` : '';
+  const more = nHidden ? `<button class="more" data-act="showHidden">${S.showHidden ? 'Ausgeblendete wieder verbergen' : nHidden === 1 ? '1 ausgeblendeten Ort zeigen' : `${nHidden} ausgeblendete Orte zeigen`}</button>` : '';
   if (!L.length) return `<p class="empty">Für diese Auswahl ist nichts dabei.</p>${more}`;
   if (S.nearby && near()) {
     const n = L.map(p => [dist(S.pos, p), p]).sort((a, b) => a[0] - b[0]).slice(0, 40);
@@ -642,10 +684,9 @@ function listView() {
 function transitView() {
   const T = window.TRIP.transit || {};
   const base = ['hotel', 'jfk'].map(id => byId[id]).filter(Boolean).map(p => {
-    const hs = p.id === 'hotel' && T.hotelStations ? T.hotelStations.map(([name, lines, min]) => ({ name, lines: lines.split(' '), min })) : stationsNear(p);
     return `<article class="card"><div class="k">${p.id === 'jfk' ? I.plane + 'Flughafen' : I.bed + 'Unterkunft'}</div><h2>${esc(p.name)}</h2>
       <p><a href="${apple(p)}" target="_blank" rel="noopener">${esc(p.addr)}</a></p>${p.note ? `<p class="note">${esc(p.note)}</p>` : ''}
-      ${hs.length ? stationList(hs) : ''}
+      ${stationsFor(p)}
       <div class="actions"><a class="btn press" href="${route(p)}" target="_blank" rel="noopener">${p.id === 'jfk' ? 'Route zum JFK' : 'Route zum Hotel'}</a>
       <button class="btn alt press" data-act="show" data-id="${p.id}">Auf der Karte</button></div></article>`;
   }).join('');
@@ -716,8 +757,9 @@ $('scroll').addEventListener('click', e => {
 $('scroll').addEventListener('change', e => {
   const a = e.target.dataset.act, p = byId[S.sel];
   if (a === 'day') { edit(p.id, { day: e.target.value }); render(); toast(e.target.value ? `Auf ${long(e.target.value)} gelegt` : 'Keinem Tag zugeordnet'); }
-  if (a === 'note') edit(p.id, { note: e.target.value.trim() });
 });
+// Eigene Notiz bei jedem Tastendruck sichern, sonst geht sie beim Wegwischen der App verloren.
+$('scroll').addEventListener('input', e => { if (e.target.dataset.act === 'note') edit(S.sel, { note: e.target.value.trim() }); });
 
 // ---------- Neuer oder bearbeiteter Ort ----------
 let pickMarker = null;
