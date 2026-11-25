@@ -43,14 +43,42 @@
   .press { transition: transform 160ms var(--ease-out); }
   .press:active { transform: scale(.96); }
 
-  #days { position: fixed; z-index: 2; top: 0; left: 0; right: 0; display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none;
-          padding: var(--top) 12px 14px; }
-  #days::-webkit-scrollbar, #filters::-webkit-scrollbar { display: none; }
-  .day { flex: none; height: 34px; padding: 0 14px; border-radius: 99px; font-size: 13px; font-weight: 600; white-space: nowrap; }
-  .day[aria-pressed="true"] { background: var(--ink); color: #fff; box-shadow: 0 6px 18px rgba(0,0,0,.25); }
-  .day.today::before { content: ""; display: inline-block; width: 6px; height: 6px; margin-right: 6px; border-radius: 50%; background: var(--blue); vertical-align: 1px; }
+  #filters::-webkit-scrollbar { display: none; }
+  /* Tag: ein Knopf, das Menü klappt darunter auf wie ein iOS-Pull-down */
+  #daybtn { position: fixed; z-index: 2; top: var(--top); left: 12px; display: flex; align-items: center; gap: 7px; height: 44px; padding: 0 14px 0 16px;
+            border-radius: 99px; font-weight: 600; letter-spacing: -.01em; white-space: nowrap; }
+  #daybtn svg { width: 14px; height: 14px; color: var(--ink2); }
+  #daybtn.today::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--blue); }
+  #daybtn.idle { color: var(--ink2); }
+  #daybtn:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+  #dayback { position: fixed; inset: 0; z-index: 7; }
+  #daymenu { position: fixed; z-index: 8; top: calc(var(--top) + 50px); left: 12px; width: min(300px, calc(100vw - 24px)); max-height: calc(100dvh - var(--top) - 62px);
+             overflow-y: auto; overscroll-behavior: contain; border-radius: 15px;
+             background: rgba(250,250,252,.8) linear-gradient(180deg, rgba(255,255,255,.55), rgba(255,255,255,0) 40%);
+             -webkit-backdrop-filter: blur(44px) saturate(190%); backdrop-filter: blur(44px) saturate(190%);
+             box-shadow: var(--hi), 0 22px 60px rgba(0,0,0,.2), 0 4px 14px rgba(0,0,0,.08);
+             /* wächst aus der oberen linken Ecke des Knopfs (50px darüber) */
+             transform-origin: 0 -50px; opacity: 0; transform: scale(.85); visibility: hidden;
+             transition: opacity 180ms var(--ease-out), transform 180ms var(--ease-out), visibility 0s 180ms; }
+  #daymenu.open { opacity: 1; transform: none; visibility: visible; transition: opacity 300ms var(--ease-drawer), transform 300ms var(--ease-drawer); }
+  .mi { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 50px; padding: 7px 16px 7px 12px; text-align: left; outline: none;
+        background-clip: padding-box; filter: blur(4px); transition: filter 180ms var(--ease-out); }
+  #daymenu.open .mi { filter: none; transition: filter 300ms var(--ease-drawer); }
+  .mi + .mi { border-top: .5px solid var(--line); }
+  .mi:nth-child(2) { border-top: 8px solid rgba(60,60,67,.08); }
+  .mi:active, .mi:focus-visible { background-color: rgba(0,0,0,.07); }
+  .ck { width: 18px; visibility: hidden; } .ck svg { width: 17px; height: 17px; }
+  .mi[aria-checked="true"] .ck { visibility: visible; }
+  .mi .t { flex: 1; min-width: 0; }
+  .mi b, .mi small { display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .mi b { font-weight: 600; letter-spacing: -.01em; }
+  .mi small { font-size: 13px; color: var(--ink2); }
+  .mi em { font-style: normal; font-size: 13px; font-weight: 600; color: var(--blue); }
+  .mi.past { color: var(--ink2); }
+  @media (prefers-reduced-motion: reduce) { #daymenu { transform: none; } #daymenu .mi { filter: none; } }
+  @media (prefers-reduced-transparency: reduce) { #daymenu { background: #f7f7f9; -webkit-backdrop-filter: none; backdrop-filter: none; } }
 
-  .maplibregl-ctrl-top-right { top: calc(var(--top) + 44px); }
+  .maplibregl-ctrl-top-right { top: calc(var(--top) - 10px); right: 2px; } /* MapLibre setzt 10px Rand: Knöpfe in einer Reihe mit dem Tag-Knopf */
   .ctl { display: flex; flex-direction: column; border-radius: 22px; overflow: hidden; }
   .ctl button { display: grid; place-items: center; width: 44px; height: 44px; color: var(--ink); }
   .ctl button + button { border-top: .5px solid var(--line); }
@@ -74,6 +102,13 @@
   .chip[aria-pressed="false"] { opacity: .42; }
   .chip.tg[aria-pressed="false"] { opacity: 1; }
   .chip.tg[aria-pressed="true"] { background: var(--ink); color: #fff; }
+  .chip small { font-size: 12px; font-weight: 600; color: var(--ink2); font-variant-numeric: tabular-nums; }
+  .chip[aria-pressed="true"] small { color: rgba(255,255,255,.7); }
+  /* Arten (Burger, Pizza, ...): zweite Leiste, nur wenn genau eine Kategorie aktiv ist */
+  #kinds { flex: none; display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; margin-top: -6px; padding: 0 20px 14px;
+           transition: opacity 220ms var(--ease-out), translate 220ms var(--ease-out); }
+  #kinds::-webkit-scrollbar { display: none; }
+  @starting-style { #kinds { opacity: 0; translate: 0 -6px; } }
   .dot { flex: none; width: 10px; height: 10px; border-radius: 50%; background: currentColor; }
   .dot.ring { background: #fff; box-shadow: inset 0 0 0 2.5px currentColor; }
   .dot.ok { display: grid; place-items: center; width: 16px; height: 16px; background: #8e8e93; color: #fff; }
@@ -194,12 +229,12 @@
 
   @media (hover: hover) and (pointer: fine) {
     .row:hover { background: rgba(0,0,0,.035); }
-    .ctl button:hover, .day:hover { color: var(--blue); }
-    .day[aria-pressed="true"]:hover { color: #fff; }
+    .ctl button:hover, #daybtn:hover { color: var(--blue); }
+    .mi:hover { background-color: rgba(0,0,0,.04); }
   }
   @media (min-width: 900px) {
-    #days { left: 404px; }
-    #filters { flex-wrap: wrap; }
+    #daybtn, #daymenu { left: 404px; }
+    #filters, #kinds { flex-wrap: wrap; }
     #sheet { left: 16px; top: 16px; bottom: 16px; width: 372px; height: auto; transform: none !important; }
     #grab { cursor: default; padding-top: 18px; }
     #grab::before { display: none; }
@@ -208,7 +243,7 @@
   @media (prefers-reduced-motion: reduce) {
     #sheet, .chip, .press, .sw::after { transition: none; }
     .card { transition: opacity 200ms ease; }
-    @starting-style { .card { transform: none; filter: none; } }
+    @starting-style { .card { transform: none; filter: none; } #kinds { translate: none; } }
     .me-dot::before { animation: none; opacity: .5; transform: none; }
   }
   @media (prefers-reduced-transparency: reduce) {
@@ -218,10 +253,13 @@
 </head>
 <body>
 <div id="map"></div>
-<nav id="days" aria-label="Tage"></nav>
+<button id="daybtn" class="glass press" aria-haspopup="menu" aria-expanded="false" aria-controls="daymenu"><span id="daylbl"></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m7 9 5-5 5 5M7 15l5 5 5-5"/></svg></button>
+<div id="dayback" hidden></div>
+<div id="daymenu" role="menu" aria-label="Tag wählen"></div>
 <section id="sheet">
   <div id="grab" role="button" tabindex="0" aria-label="Liste ein- oder ausklappen"><h1 id="title"></h1><p id="sub"></p></div>
   <div id="filters"></div>
+  <div id="kinds" aria-label="Arten" hidden></div>
   <div id="tools">
     <div class="seg" role="tablist"><button role="tab" data-tab="orte">Orte</button><button role="tab" data-tab="weg">Unterwegs</button></div>
     <label class="search" id="qbox"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
@@ -246,6 +284,16 @@ const CATS = {
   weihnachten: { label: 'Weihnachten',        color: '#34c759' },
   basis:       { label: 'Hotel & Flughafen',  color: '#1d1d1f' },
 };
+// Arten innerhalb einer Kategorie, Reihenfolge wie in der Leiste. Schlüssel sind über alle Kategorien eindeutig.
+const KINDS = {
+  essen: { burger: 'Burger', pizza: 'Pizza', tacos: 'Tacos', bagels: 'Bagels', deli: 'Deli & Sandwiches', chicken: 'Chicken',
+           asiatisch: 'Asiatisch', streetfood: 'Streetfood & Halal', restaurant: 'Restaurants' },
+  suess: { kaffee: 'Kaffee', matcha: 'Matcha', gebaeck: 'Cookies & Gebäck', dessert: 'Desserts' },
+  shopping: { kleidung: 'Klamotten & Streetwear', sneaker: 'Sneaker', vintage: 'Vintage & Thrift', ecken: 'Shopping-Ecken', markt: 'Märkte' },
+  abends: { bar: 'Bars & Cocktails', jazz: 'Jazz & Live', japanisch: 'Japanische Bars', rooftop: 'Rooftops', comedy: 'Comedy', shows: 'Broadway & Shows' },
+};
+const KIND_LABEL = Object.assign(Object.create(null), ...Object.values(KINDS));
+const kindLabel = p => KIND_LABEL[p.kind] || '';
 const ORDER = Object.keys(CATS).filter(c => c !== 'basis');
 const svg = (d, fill) => `<svg viewBox="0 0 24 24" ${fill ? 'fill="currentColor"' : 'fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"'}>${d}</svg>`;
 const I = {
@@ -350,22 +398,27 @@ function howTo(p) {
 }
 
 const S = { day: days.some(d => d.d === today) ? today : 'alle', cats: new Set(ORDER), claude: true, branches: true, open: false, sel: null,
-            q: '', openNow: false, hideDone: false, showHidden: false, nearby: false, tab: 'orte', subway: store.get('subway', false),
+            kind: null, q: '', openNow: false, hideDone: false, showHidden: false, nearby: false, tab: 'orte', subway: store.get('subway', false),
             pos: null, follow: false, form: null };
 const near = () => S.pos && dist(S.pos, NYC) < 60000;
 const norm = s => String(s || '').normalize('NFD').replace(/\p{M}/gu, '').replace(/[’‘ʼ'`´]/g, '').toLowerCase();
-const match = p => norm([p.name, p.hood, p.addr, p.note, CATS[p.cat].label].join(' ')).includes(norm(S.q));
+const match = p => norm([p.name, p.hood, p.addr, p.note, CATS[p.cat].label, kindLabel(p)].join(' ')).includes(norm(S.q));
 
-function visible(p) {
+function visible(p) { return fits(p, S.kind); }
+// Wie visible, aber mit frei wählbarer Art (für die Zähler in der Arten-Leiste).
+function fits(p, kind) {
   if (p.cat === 'basis' || !CATS[p.cat]) return false;
   if (isHidden(p) && !S.showHidden) return false;
   if (!S.cats.has(p.cat) || (p.by === 'claude' && !S.claude)) return false;
+  if (kind && p.kind !== kind) return false;
   if (S.hideDone && U.done[p.id]) return false;
   if (S.openNow && openInfo(p)?.open === false) return false; // unbekannte Zeiten bleiben sichtbar
   if (S.q) return match(p);
-  // Filialen (main: false) gelten an jedem Tag, alle anderen Orte nur an ihrem Tag.
+  // Mit gewählter Art zählen alle Tage. Sonst gelten Filialen (main: false) an jedem Tag, alle anderen Orte nur an ihrem Tag.
+  if (kind) return p.main || S.branches;
   return p.main ? S.day === 'alle' || dayOf(p) === S.day : S.branches;
 }
+const soloKinds = () => S.cats.size === 1 ? KINDS[[...S.cats][0]] : null;
 const apple = p => `https://maps.apple.com/?ll=${p.lat},${p.lng}&q=${encodeURIComponent(p.name)}`;
 const route = p => `https://maps.apple.com/?daddr=${p.lat},${p.lng}&dirflg=r`;
 const desk = () => innerWidth >= 900;
@@ -390,7 +443,8 @@ const BY_CLAUDE = ['==', ['get', 'by'], 'claude'];
 const DONE = ['get', 'done'];
 const geo = () => ({ type: 'FeatureCollection', features: places.filter(visible).map(p => ({ type: 'Feature',
   geometry: { type: 'Point', coordinates: [p.lng, p.lat] },
-  properties: { id: p.id, name: p.name.replace(/ \(.*\)$/, ''), by: p.by, main: !!p.main, done: !!U.done[p.id], color: CATS[p.cat].color } })) });
+  // Mit gewählter Art sind Filialen echte Kandidaten: volle Pins statt grauer Punkte.
+  properties: { id: p.id, name: p.name.replace(/ \(.*\)$/, ''), by: p.by, main: !!p.main || !!S.kind, done: !!U.done[p.id], color: CATS[p.cat].color } })) });
 const SUBWAY_LAYERS = ['sub-line', 'sub-st', 'sub-lbl'];
 
 function checkImg() {
@@ -476,9 +530,9 @@ map.on('touchend', () => clearTimeout(lp));
 map.on('touchcancel', () => clearTimeout(lp));
 map.on('contextmenu', e => { if (!('ontouchstart' in window)) newPlace(e.lngLat); });
 
-// Freie Kartenfläche neben Tagesleiste, Knöpfen und Sheet.
+// Freie Kartenfläche neben Tag-Knopf, Knöpfen und Sheet.
 function pad() {
-  const top = $('days').getBoundingClientRect().bottom + 16;
+  const top = $('daybtn').getBoundingClientRect().bottom + 16;
   if (desk()) return { top, left: 404, right: 80, bottom: 32 };
   return { top, left: 24, right: 72, bottom: (S.open ? $('sheet').offsetHeight : peek()) + 24 };
 }
@@ -486,7 +540,7 @@ function pad() {
 const CORE = { lat: 40.73, lng: -73.96 };
 function fit(anim = true) {
   const b = new maplibregl.LngLatBounds();
-  places.filter(p => p.main && visible(p) && dist(CORE, p) < 13000).forEach(p => b.extend([p.lng, p.lat]));
+  places.filter(p => (p.main || S.kind) && visible(p) && dist(CORE, p) < 13000).forEach(p => b.extend([p.lng, p.lat]));
   if (!b.isEmpty()) map.fitBounds(b, { padding: pad(), maxZoom: 15, duration: anim ? 700 : 0 });
 }
 function focusOn(p, fly = true) {
@@ -553,7 +607,7 @@ function select(id, fly = true) {
 // ---------- Sheet ----------
 let userMoved = false;
 map.on('movestart', e => { if (e.originalEvent) userMoved = true; });
-const peek = () => { const f = $('filters'); return f.hidden ? $('grab').offsetHeight + 12 : f.offsetTop + f.offsetHeight; };
+const peek = () => { const f = $('kinds').hidden ? $('filters') : $('kinds'); return f.hidden ? $('grab').offsetHeight + 12 : f.offsetTop + f.offsetHeight; };
 const setPeek = () => document.documentElement.style.setProperty('--peek', peek() + 'px');
 function setOpen(v) {
   const changed = v !== S.open;
@@ -592,15 +646,39 @@ grab.onpointerup = grab.onpointercancel = e => {
 grab.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setOpen(!S.open); } };
 
 // ---------- Leisten ----------
-$('days').innerHTML = [['alle', 'Alle'], ...days.map(d => [d.d, d.d === today ? 'Heute' : short(d.d)])].map(([k, t]) =>
-  `<button class="day glass press${k === today ? ' today' : ''}" data-d="${k}">${t}</button>`).join('');
-$('days').onclick = e => {
-  const b = e.target.closest('.day');
+// Tag-Menü: Haken links, Datum fett, Tagestitel darunter, vergangene Tage gedämpft.
+$('daymenu').innerHTML = [['alle', 'Alle Tage', `${long(days[0].d).slice(3)} bis ${long(days.at(-1).d).slice(3)}`], ...days.map(d => [d.d, long(d.d), d.title])]
+  .map(([k, t, s]) => `<button class="mi${k !== 'alle' && k < today ? ' past' : ''}" role="menuitemradio" tabindex="-1" data-d="${k}"><span class="ck">${I.check}</span>`
+    + `<span class="t"><b>${t}</b><small>${esc(s)}</small></span>${k === today ? '<em>Heute</em>' : ''}</button>`).join('');
+const dayItems = [...$('daymenu').children];
+const menuOpen = () => $('daymenu').classList.contains('open');
+function dayMenu(open, back) {
+  $('daymenu').classList.toggle('open', open);
+  $('dayback').hidden = !open;
+  $('daybtn').setAttribute('aria-expanded', open);
+  if (open) (dayItems.find(b => b.dataset.d === S.day) || dayItems[0]).focus();
+  else if (back) $('daybtn').focus();
+}
+$('daybtn').onclick = () => dayMenu(true);
+$('daybtn').onkeydown = e => { if (e.key === 'ArrowDown') { e.preventDefault(); dayMenu(true); } };
+$('dayback').onclick = () => dayMenu(false); // fängt das Antippen ab, damit es nicht auf der Karte landet
+$('daymenu').onpointermove = e => e.pointerType === 'mouse' && e.target.closest('.mi')?.focus(); // eine Markierung für Maus und Tastatur
+$('daymenu').onclick = e => {
+  const b = e.target.closest('.mi');
   if (!b) return;
-  S.day = b.dataset.d; S.sel = null; S.tab = 'orte'; S.q = $('q').value = ''; userMoved = false;
+  S.day = b.dataset.d; S.sel = null; S.kind = null; S.tab = 'orte'; S.q = $('q').value = ''; userMoved = false;
+  dayMenu(false, true);
   render(); fit();
-  b.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' });
 };
+addEventListener('keydown', e => {
+  if (!menuOpen()) return;
+  const i = dayItems.indexOf(document.activeElement), n = dayItems.length;
+  const j = { ArrowDown: i + 1, ArrowUp: i - 1, Home: 0, End: n - 1 }[e.key];
+  if (j != null) { e.preventDefault(); dayItems[(j + n) % n].focus(); }
+  else if (e.key === 'Escape') { e.preventDefault(); dayMenu(false, true); }
+  else if (e.key === 'Tab') dayMenu(false);
+});
+addEventListener('resize', () => menuOpen() && dayMenu(false));
 
 const CHIPS = [
   ['nearby', 'In der Nähe', 'sw'], ['openNow', 'Jetzt offen', 'sw'], ['hideDone', 'Erledigte ausblenden', 'sw'],
@@ -619,6 +697,7 @@ $('filters').onclick = e => {
   if (k.startsWith('cat:')) {
     // Antippen, wenn alle an sind: nur diese Kategorie. Nochmal: wieder alle.
     const c = k.slice(4);
+    S.kind = null;
     if (S.cats.size === ORDER.length) S.cats = new Set([c]);
     else if (S.cats.size === 1 && S.cats.has(c)) S.cats = new Set(ORDER);
     else S.cats.has(c) ? S.cats.delete(c) : S.cats.add(c);
@@ -626,6 +705,26 @@ $('filters').onclick = e => {
   if (S.sel && !visible(byId[S.sel]) && byId[S.sel].cat !== 'basis') S.sel = null;
   render();
   if (k.startsWith('cat:') && !S.sel) fit();
+};
+// Arten-Leiste: Antippen zeigt nur diese Art (an allen Tagen, mit Filialen), nochmal Antippen wieder alle.
+let kindsHtml = '';
+function kindRow() {
+  const K = soloKinds(), el = $('kinds');
+  if (!K || !Object.hasOwn(K, S.kind)) S.kind = null;
+  el.hidden = !K || S.tab !== 'orte';
+  if (el.hidden) return;
+  const html = Object.entries(K).map(([k, t]) => [k, t, places.filter(p => fits(p, k)).length]).filter(([k, , n]) => n || k === S.kind)
+    .map(([k, t, n]) => `<button class="chip tg" data-k="${k}">${esc(t)}<small>${n}</small></button>`).join('');
+  if (html !== kindsHtml) el.innerHTML = kindsHtml = html; // nur bei neuen Zahlen tauschen, sonst springt die Leiste zurück
+  for (const b of el.children) b.setAttribute('aria-pressed', b.dataset.k === S.kind);
+}
+$('kinds').onclick = e => {
+  const b = e.target.closest('.chip');
+  if (!b) return;
+  S.kind = S.kind === b.dataset.k ? null : b.dataset.k;
+  if (S.sel && !visible(byId[S.sel]) && byId[S.sel].cat !== 'basis') S.sel = null;
+  render(); $('scroll').scrollTop = 0;
+  if (!S.sel) fit();
 };
 $('tools').onclick = e => {
   const t = e.target.closest('[data-tab]');
@@ -643,7 +742,7 @@ function row(p) {
   const o = openInfo(p), d = dayOf(p);
   const meta = [near() ? km(dist(S.pos, p)) : '', esc(p.hood), o ? `<i class="${o.cls}">${o.text.replace(' · öffnet', ', öffnet')}</i>` : ''].filter(Boolean).join(' · ');
   return `<button class="row${p.id === S.sel ? ' sel' : ''}${U.done[p.id] ? ' done' : ''}" data-id="${p.id}">${dot(p)}<span class="t"><b>${esc(p.name)}</b><small>${meta}</small></span>`
-    + (p.hype ? '<span class="tag hot">Trend</span>' : '') + (S.day === 'alle' && d ? `<span class="tag">${short(d)}</span>` : '') + '</button>';
+    + (p.hype ? '<span class="tag hot">Trend</span>' : '') + ((S.day === 'alle' || S.kind) && d ? `<span class="tag">${short(d)}</span>` : '') + '</button>';
 }
 const dayOptions = sel => '<option value="">Kein Tag</option>' + days.map(x => `<option value="${x.d}"${x.d === sel ? ' selected' : ''}>${long(x.d)} ${esc(x.title)}</option>`).join('');
 
@@ -651,7 +750,7 @@ function detail(p) {
   const o = openInfo(p), done = !!U.done[p.id], mine = p.by === 'me', base = p.cat === 'basis';
   const parent = p.main ? null : places.find(q => q.group === p.group && q.main);
   return `<article class="card" id="detail"><button class="x press" data-act="close" aria-label="Schließen">${I.x}</button>
-    <div class="k">${base ? (p.id === 'jfk' ? I.plane : I.bed) : dot(p)}${CATS[p.cat].label}${p.hood ? ' · ' + esc(p.hood) : ''}</div>
+    <div class="k">${base ? (p.id === 'jfk' ? I.plane : I.bed) : dot(p)}${CATS[p.cat].label}${kindLabel(p) ? ' · ' + esc(kindLabel(p)) : ''}${p.hood ? ' · ' + esc(p.hood) : ''}</div>
     <h2>${esc(p.name)}</h2>
     <div class="badges">${p.hype ? '<span class="badge hot">Im Trend</span>' : ''}${p.by === 'claude' ? '<span class="badge">Vorschlag von Claude</span>' : ''}${mine ? '<span class="badge me">Von euch ergänzt</span>' : ''}${done ? '<span class="badge ok">Erledigt</span>' : ''}</div>
     ${p.addr ? `<p><a href="${apple(p)}" target="_blank" rel="noopener">${esc(p.addr)}</a>${parent ? ' · weitere Filiale' : ''}</p>` : ''}
@@ -667,13 +766,28 @@ function detail(p) {
 }
 
 function listView() {
-  const L = places.filter(p => (p.main || S.q) && visible(p));
+  const L = places.filter(p => (p.main || S.q || S.kind) && visible(p));
   const nHidden = places.filter(isHidden).length;
   const more = nHidden ? `<button class="more" data-act="showHidden">${S.showHidden ? 'Ausgeblendete wieder verbergen' : nHidden === 1 ? '1 ausgeblendeten Ort zeigen' : `${nHidden} ausgeblendete Orte zeigen`}</button>` : '';
   if (!L.length) return `<p class="empty">Für diese Auswahl ist nichts dabei.</p>${more}`;
+  if (S.kind) {
+    // Nach Entfernung, sonst erst die verplanten Orte nach Tag, dann der Rest alphabetisch, Filialen nach den Hauptorten.
+    const g = near() ? L.map(p => [dist(S.pos, p), p]).sort((a, b) => a[0] - b[0]).map(([, p]) => p)
+      : L.sort((a, b) => (dayOf(a) || 'z').localeCompare(dayOf(b) || 'z') || !a.main - !b.main || a.name.localeCompare(b.name, 'de'));
+    return `<h3 class="sec">${esc(KIND_LABEL[S.kind])} <small>${g.length}</small></h3>${g.map(row).join('')}${more}`;
+  }
   if (S.nearby && near()) {
     const n = L.map(p => [dist(S.pos, p), p]).sort((a, b) => a[0] - b[0]).slice(0, 40);
     return `<h3 class="sec">In der Nähe <small>${n.length}</small></h3>` + n.map(([, p]) => row(p)).join('') + more;
+  }
+  const K = soloKinds();
+  if (K) { // genau eine Kategorie: nach Arten gruppiert, Orte ohne Art zuletzt
+    const of = p => Object.hasOwn(K, p.kind) ? p.kind : '';
+    L.sort(sortKey);
+    return [...Object.keys(K), ''].map(k => {
+      const g = L.filter(p => of(p) === k);
+      return g.length ? `<h3 class="sec">${k ? esc(K[k]) : 'Weitere'} <small>${g.length}</small></h3>${g.map(row).join('')}` : '';
+    }).join('') + more;
   }
   return ORDER.map(c => {
     const g = L.filter(p => p.cat === c).sort(sortKey);
@@ -701,15 +815,21 @@ function header() {
   const day = days.find(d => d.d === S.day);
   const main = places.filter(p => p.main && p.cat !== 'basis');
   const done = main.filter(p => U.done[p.id]).length;
-  $('title').textContent = S.q ? 'Suche' : day ? day.title : 'Alle Orte';
-  $('sub').textContent = S.q ? `${places.filter(visible).length} Treffer für „${S.q}“`
+  const n = places.filter(visible).length;
+  $('title').textContent = S.q ? 'Suche' : S.kind ? KIND_LABEL[S.kind] : day ? day.title : 'Alle Orte';
+  $('sub').textContent = S.q ? `${n} Treffer für „${S.q}“`
+    : S.kind ? `${n} ${n === 1 ? 'Ort' : 'Orte'}, an allen Tagen${near() ? ', nach Entfernung' : ''}`
     : day ? [long(day.d), day.note].filter(Boolean).join(' · ')
     : `${long(days[0].d)} bis ${long(days[days.length - 1].d)} · ${main.length} Orte · ${done} erledigt`;
 }
 
 function render() {
   NOW = nyNow();
-  for (const b of $('days').children) b.setAttribute('aria-pressed', S.tab === 'orte' && !S.q && b.dataset.d === S.day);
+  kindRow(); // kann S.kind zurücksetzen, daher vor der Tagesanzeige
+  $('daylbl').textContent = S.day === 'alle' ? 'Alle Tage' : S.day === today ? 'Heute' : long(S.day);
+  $('daybtn').classList.toggle('today', S.day === today);
+  $('daybtn').classList.toggle('idle', S.tab !== 'orte' || !!S.q || !!S.kind); // Suche, Art und Unterwegs ignorieren den Tag
+  for (const b of dayItems) b.setAttribute('aria-checked', b.dataset.d === S.day);
   for (const b of $('filters').children) { const k = b.dataset.k; b.setAttribute('aria-pressed', k.startsWith('cat:') ? S.cats.has(k.slice(4)) : !!S[k]); }
   for (const b of document.querySelectorAll('.seg button')) b.setAttribute('aria-selected', b.dataset.tab === S.tab);
   if (map.getSource('pts')) { map.getSource('pts').setData(geo()); map.setFilter('sel', ['==', ['get', 'id'], S.sel || '']); }
@@ -755,6 +875,7 @@ $('scroll').addEventListener('click', e => {
   }
 });
 $('scroll').addEventListener('change', e => {
+  if (e.target.id === 'f-cat') return kindField(e.target.value);
   const a = e.target.dataset.act, p = byId[S.sel];
   if (a === 'day') { edit(p.id, { day: e.target.value }); render(); toast(e.target.value ? `Auf ${long(e.target.value)} gelegt` : 'Keinem Tag zugeordnet'); }
 });
@@ -765,7 +886,7 @@ $('scroll').addEventListener('input', e => { if (e.target.dataset.act === 'note'
 let pickMarker = null;
 const pickEl = () => { const el = document.createElement('div'); el.className = 'pick'; return el; };
 function newPlace(ll) {
-  openForm({ name: '', cat: 'sehen', day: S.day === 'alle' ? '' : S.day, note: '', lat: ll?.lat, lng: ll?.lng, addr: '', hood: '' });
+  openForm({ name: '', cat: S.cats.size === 1 ? [...S.cats][0] : 'sehen', kind: S.kind || '', day: S.day === 'alle' ? '' : S.day, note: '', lat: ll?.lat, lng: ll?.lng, addr: '', hood: '' });
   if (ll) { setWhere({ lat: ll.lat, lng: ll.lng, addr: 'Gewählter Punkt', hood: '' }); reverse(ll); }
 }
 function openForm(f) {
@@ -779,13 +900,21 @@ function openForm(f) {
     <p class="where" id="f-where"></p>
     <button class="chipbtn press" data-act="f-me">${I.loc}Mein Standort</button>
     <label class="field"><span>Kategorie</span><select id="f-cat">${ORDER.map(c => `<option value="${c}"${c === f.cat ? ' selected' : ''}>${CATS[c].label}</option>`).join('')}</select></label>
+    <label class="field" id="f-kind-l"><span>Art</span><select id="f-kind"></select></label>
     <label class="field"><span>Tag</span><select id="f-day">${dayOptions(f.day)}</select></label>
     <label class="field"><span>Notiz</span><textarea id="f-note" rows="2">${esc(f.note)}</textarea></label>
     <div class="actions"><button class="btn press" data-act="f-save">Sichern</button><button class="btn alt press" data-act="cancel">Abbrechen</button></div>
     <p class="hint">Tipp: Lange auf die Karte drücken setzt den Punkt genau dort.</p></article>`;
-  showWhere();
+  showWhere(); kindField(f.cat, f.kind);
   if (f.lat != null) placePick(f);
   setOpen(true); $('scroll').scrollTop = 0;
+}
+// Art passend zur Kategorie, ausgeblendet bei Kategorien ohne Arten.
+function kindField(cat, sel) {
+  const K = KINDS[cat];
+  $('f-kind-l').hidden = !K;
+  $('f-kind').innerHTML = '<option value="">Keine Angabe</option>'
+    + Object.entries(K || {}).map(([k, t]) => `<option value="${k}"${k === sel ? ' selected' : ''}>${esc(t)}</option>`).join('');
 }
 function showWhere() {
   const f = S.form;
@@ -805,7 +934,7 @@ function saveForm() {
   const f = S.form, name = $('f-name').value.trim();
   if (!name) { toast('Bitte einen Namen eingeben.'); return $('f-name').focus(); }
   if (f.lat == null) return toast('Bitte einen Ort suchen oder lange auf die Karte drücken.');
-  const p = { id: f.id || 'eigen-' + Date.now().toString(36), name, main: true, cat: $('f-cat').value, by: 'me',
+  const p = { id: f.id || 'eigen-' + Date.now().toString(36), name, main: true, cat: $('f-cat').value, kind: $('f-kind').value, by: 'me',
               addr: f.addr === 'Gewählter Punkt' || f.addr === 'Mein Standort' ? '' : f.addr || '', hood: f.hood || '',
               lat: +(+f.lat).toFixed(5), lng: +(+f.lng).toFixed(5), note: $('f-note').value.trim(), day: $('f-day').value };
   p.group = p.id;
@@ -815,6 +944,7 @@ function saveForm() {
   save(); rebuild();
   S.form = null; pickMarker?.remove();
   S.cats.add(p.cat); S.q = $('q').value = '';
+  if (S.kind && p.kind !== S.kind) S.kind = null;
   if (!visible(p)) S.day = 'alle';
   toast(i >= 0 ? 'Gesichert' : 'Ort hinzugefügt');
   select(p.id);
@@ -851,7 +981,6 @@ async function reverse(ll) {
 addEventListener('resize', setPeek);
 setInterval(() => { if (!S.form && !document.hidden && !document.activeElement?.matches('textarea, select')) render(); }, 60000);
 render();
-document.querySelector('.day[aria-pressed="true"]')?.scrollIntoView({ inline: 'center', block: 'nearest' });
 if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js');
 </script>
 </body>
